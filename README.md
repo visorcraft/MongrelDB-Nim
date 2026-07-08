@@ -1,12 +1,20 @@
-# MongrelDB Nim Client
+<p align="center">
+  <img src="assets/mongrel.png" alt="MongrelDB logo" width="250" />
+</p>
 
-MongrelDB Nim Client is the pure Nim HTTP client for [MongrelDB](https://www.MongrelDB.com). It gives Nim applications a typed CRUD surface, a fluent query builder that pushes conditions down to MongrelDB's native indexes, idempotent batch transactions, full SQL access, and schema introspection - all over HTTP to a running `mongreldb-server` daemon.
+<h1 align="center">MongrelDB Nim Client</h1>
 
-No C ABI bindings and no external dependencies - built on the standard library `std/httpclient` and `std/json`. The API mirrors the MongrelDB PHP, Go, Java, and D clients.
+<p align="center">
+  <b>Pure Nim client for MongrelDB - embedded+server database with SQL, vector search, full-text search, and AI-native retrieval.</b>
+  <br />
+  No C ABI bindings and no external dependencies - built on the standard library <code>std/httpclient</code> and <code>std/json</code>. The API mirrors the MongrelDB PHP, Go, Java, and D clients.
+</p>
 
-[![Nim](https://img.shields.io/badge/Nim-%3E%3D2.0-ffe953.svg)](https://nim-lang.org/)
-[![CI](https://github.com/visorcraft/MongrelDB-Nim/actions/workflows/ci.yml/badge.svg)](https://github.com/visorcraft/MongrelDB-Nim/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
+<p align="center">
+  <a href="https://nim-lang.org/"><img src="https://img.shields.io/badge/Nim-%3E%3D2.0-ffe953.svg" alt="Nim" /></a>
+  <a href="https://github.com/visorcraft/MongrelDB-Nim/actions/workflows/ci.yml"><img src="https://github.com/visorcraft/MongrelDB-Nim/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg" alt="License" /></a>
+</p>
 
 ## Package
 
