@@ -28,6 +28,19 @@ No C ABI bindings and no external dependencies — built on the standard library
 - **Schema management**: typed table creation, full schema catalog, and per-table descriptors.
 - **Typed exceptions**: `AuthError` (401/403), `NotFoundError` (404), `ConflictError` (409, with error code + op index), and `QueryError` (everything else), all subclasses of `MongrelDBError` carrying the HTTP status and decoded server envelope.
 - **Pluggable auth**: Bearer token (`--auth-token` mode) and HTTP Basic (`--auth-users` mode); the token takes precedence.
+- **User/role/credentials management** via SQL: Argon2id-hashed catalog users, roles, and `GRANT`/`REVOKE` table-level permissions, all executed through `sql`.
+
+## Examples
+
+Runnable, end-to-end programs and deep dives for every feature live in
+[`docs/`](docs/):
+
+- [Quickstart](docs/quickstart.md) — install, start the daemon, write and run a complete program.
+- [Batch transactions](docs/transactions.md) — atomic multi-op commits, idempotency, and retry.
+- [Native query builder](docs/queries.md) — every condition type and the alias translation rules.
+- [SQL](docs/sql.md) — recursive CTEs, window functions, `CREATE TABLE AS SELECT`.
+- [Authentication](docs/auth.md) — bearer token, basic auth, and user/role management via SQL.
+- [Error handling](docs/errors.md) — the exception hierarchy and recovery patterns.
 
 ## Quick Example
 
@@ -149,6 +162,30 @@ discard db.sql("SELECT id, ROW_NUMBER() OVER (PARTITION BY customer ORDER BY amo
 > Note: the `/sql` endpoint streams Arrow IPC bytes for `SELECT`s. The client
 > decodes JSON bodies when present and returns an empty seq otherwise (e.g.
 > for DDL/DML or binary result sets).
+
+## User & role management
+
+When the daemon runs in `--auth-users` mode, users and roles live in the
+catalog and are managed with SQL through `sql`.
+
+```nim
+# Create an Argon2id-hashed user.
+discard db.sql("CREATE USER alice WITH PASSWORD 'hunter2'")
+
+# Promote to administrator.
+discard db.sql("ALTER USER alice ADMIN")
+
+# Roles and table-level grants.
+discard db.sql("CREATE ROLE analyst")
+discard db.sql("GRANT SELECT ON orders TO analyst")
+discard db.sql("GRANT analyst TO alice")
+discard db.sql("REVOKE SELECT ON orders FROM analyst")
+discard db.sql("DROP ROLE analyst")
+discard db.sql("DROP USER alice")
+```
+
+See [docs/auth.md](docs/auth.md) for the full auth mode reference and user/role
+recipes.
 
 ## Error handling
 
