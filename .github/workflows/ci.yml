@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Nim ${{ matrix.nim }}
-        uses: alaviss/setup-nim-action@v2
+        uses: jiro4989/setup-nim-action@v2
         with:
           nim-version: ${{ matrix.nim }}
 
@@ -61,7 +61,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Nim
-        uses: alaviss/setup-nim-action@v2
+        uses: jiro4989/setup-nim-action@v2
         with:
           nim-version: 'stable'
 
