@@ -78,7 +78,7 @@ proc startDaemon(): tuple[db: MongrelDB, ok: bool, pid: int, logPath: string] =
   # file and its stdin from /dev/null; its pid is written to a pidfile (NOT the
   # shell's stdout) so the parent does not block on a pipe held open by the
   # backgrounded child. `execCmd` is used (rather than `execCmdEx`) precisely
-  # because it captures no output — `execCmdEx`'s readLine loop would hang
+  # because it captures no output - `execCmdEx`'s readLine loop would hang
   # forever on the inherited pipe write end kept open by the daemon.
   let logPath = dataDir & ".log"
   let pidPath = dataDir & ".pid"

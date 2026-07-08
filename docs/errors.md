@@ -23,7 +23,7 @@ CatchableError
 
 | Type                | HTTP status         | Meaning |
 |---------------------|---------------------|---------|
-| `MongrelDBError`    | —                   | Base type for every client failure. Catch this to handle any error. |
+| `MongrelDBError`    | -                   | Base type for every client failure. Catch this to handle any error. |
 | `AuthError`         | 401, 403            | Bad or missing credentials. |
 | `NotFoundError`     | 404                 | Missing table, schema, or resource. |
 | `ConflictError`     | 409                 | Unique / foreign-key / check / trigger violation rolled back a transaction. |
@@ -109,10 +109,10 @@ proc commitWithRetry(txn: Transaction; key: string): seq[JsonNode] =
     try:
       return txn.commit(key)
     except ConflictError:
-      raise # constraint violation — fix the data, do not retry blindly
+      raise # constraint violation - fix the data, do not retry blindly
     except QueryError as e:
       if e.status == -1 or (e.status >= 500 and e.status < 600):
-        sleep(100) # transport or server error — safe to retry
+        sleep(100) # transport or server error - safe to retry
         continue
       raise
   raise newException(IOError, "commit failed after 3 attempts")
@@ -134,7 +134,7 @@ you want to know what went wrong:
 
 ```nim
 if not db.health():
-  echo "daemon down — check the URL and auth"
+  echo "daemon down - check the URL and auth"
 ```
 
 ## Common pitfalls
@@ -158,5 +158,5 @@ game.
 
 ## Next steps
 
-- [transactions.md](transactions.md) — atomic batches and idempotency
-- [auth.md](auth.md) — where `AuthError` comes from
+- [transactions.md](transactions.md) - atomic batches and idempotency
+- [auth.md](auth.md) - where `AuthError` comes from

@@ -1,7 +1,7 @@
 ## mongreldb is the pure Nim HTTP client for MongrelDB.
 ##
 ## It talks to a running mongreldb-server daemon's JSON API over the standard
-## library `std/httpclient` client — no C ABI bindings to the engine, no
+## library `std/httpclient` client - no C ABI bindings to the engine, no
 ## external dependencies. The surface mirrors the MongrelDB PHP, Go, Java, and
 ## D clients: typed CRUD, a fluent query builder that pushes conditions down to
 ## the engine's native indexes, idempotent batch transactions, full SQL access,
@@ -19,7 +19,7 @@ import std/[base64, httpclient, json, strutils, tables, uri]
 
 # NOTE: the submodule imports (mongreldb/transaction, mongreldb/query) are at
 # the BOTTOM of this file. They import `mongreldb` for the MongrelDB type and
-# helpers, so they must be parsed after those definitions exist — otherwise the
+# helpers, so they must be parsed after those definitions exist - otherwise the
 # circular dependency leaves `MongrelDB` undeclared in the submodules.
 
 const
@@ -36,13 +36,13 @@ type
     opIndex*: int         ## Offending op index in a failed transaction, or -1.
 
   AuthError* = ref object of MongrelDBError
-    ## Raised for HTTP 401 or 403 — bad or missing credentials.
+    ## Raised for HTTP 401 or 403 - bad or missing credentials.
 
   NotFoundError* = ref object of MongrelDBError
-    ## Raised for HTTP 404 — a missing table, schema, or other resource.
+    ## Raised for HTTP 404 - a missing table, schema, or other resource.
 
   ConflictError* = ref object of MongrelDBError
-    ## Raised for HTTP 409 — a unique, foreign-key, check, or trigger
+    ## Raised for HTTP 409 - a unique, foreign-key, check, or trigger
     ## constraint violation.
 
   QueryError* = ref object of MongrelDBError
@@ -360,7 +360,7 @@ proc count*(db: MongrelDB; table: string): int64 =
 proc put*(db: MongrelDB; table: string; cells: openArray[(int64, JsonNode)];
     idempotencyKey: string = ""): JsonNode =
   ## Insert a row. `idempotencyKey`, when non-empty, makes the commit safe to
-  ## retry — the daemon returns the original result on duplicate commits.
+  ## retry - the daemon returns the original result on duplicate commits.
   ##
   ## `cells` is a sequence of `(column_id, value)` pairs; the client flattens
   ## them to the server's `[col_id, value, col_id, value, ...]` array before

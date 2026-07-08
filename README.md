@@ -1,8 +1,8 @@
 # MongrelDB Nim Client
 
-MongrelDB Nim Client is the pure Nim HTTP client for [MongrelDB](https://www.MongrelDB.com). It gives Nim applications a typed CRUD surface, a fluent query builder that pushes conditions down to MongrelDB's native indexes, idempotent batch transactions, full SQL access, and schema introspection — all over HTTP to a running `mongreldb-server` daemon.
+MongrelDB Nim Client is the pure Nim HTTP client for [MongrelDB](https://www.MongrelDB.com). It gives Nim applications a typed CRUD surface, a fluent query builder that pushes conditions down to MongrelDB's native indexes, idempotent batch transactions, full SQL access, and schema introspection - all over HTTP to a running `mongreldb-server` daemon.
 
-No C ABI bindings and no external dependencies — built on the standard library `std/httpclient` and `std/json`. The API mirrors the MongrelDB PHP, Go, Java, and D clients.
+No C ABI bindings and no external dependencies - built on the standard library `std/httpclient` and `std/json`. The API mirrors the MongrelDB PHP, Go, Java, and D clients.
 
 [![Nim](https://img.shields.io/badge/Nim-%3E%3D2.0-ffe953.svg)](https://nim-lang.org/)
 [![CI](https://github.com/visorcraft/MongrelDB-Nim/actions/workflows/ci.yml/badge.svg)](https://github.com/visorcraft/MongrelDB-Nim/actions/workflows/ci.yml)
@@ -23,7 +23,7 @@ No C ABI bindings and no external dependencies — built on the standard library
 
 - **Typed CRUD** over the Kit transaction endpoint: `put` (insert), and `deleteByPk` (delete by primary key), with optional idempotency keys for safe retries.
 - **Fluent query builder** that pushes conditions down to the engine's specialized indexes for sub-millisecond lookups: bitmap equality/IN, learned-range, null checks, FM-index full-text search, HNSW vector similarity (`ann`), and sparse vector match. Friendly aliases (`column` → `column_id`, `min`/`max` → `lo`/`hi`) are translated to the server's on-wire keys.
-- **Idempotent batch transactions** — operations staged locally and committed atomically, with the engine enforcing unique, foreign-key, and check constraints at commit time. Idempotency keys return the original response on duplicate commits, even after a crash.
+- **Idempotent batch transactions** - operations staged locally and committed atomically, with the engine enforcing unique, foreign-key, and check constraints at commit time. Idempotency keys return the original response on duplicate commits, even after a crash.
 - **Full SQL access** through the DataFusion-backed `/sql` endpoint: recursive CTEs, window functions, `CREATE TABLE AS SELECT`, materialized views, and multi-statement execution.
 - **Schema management**: typed table creation, full schema catalog, and per-table descriptors.
 - **Typed exceptions**: `AuthError` (401/403), `NotFoundError` (404), `ConflictError` (409, with error code + op index), and `QueryError` (everything else), all subclasses of `MongrelDBError` carrying the HTTP status and decoded server envelope.
@@ -35,12 +35,12 @@ No C ABI bindings and no external dependencies — built on the standard library
 Runnable, end-to-end programs and deep dives for every feature live in
 [`docs/`](docs/):
 
-- [Quickstart](docs/quickstart.md) — install, start the daemon, write and run a complete program.
-- [Batch transactions](docs/transactions.md) — atomic multi-op commits, idempotency, and retry.
-- [Native query builder](docs/queries.md) — every condition type and the alias translation rules.
-- [SQL](docs/sql.md) — recursive CTEs, window functions, `CREATE TABLE AS SELECT`.
-- [Authentication](docs/auth.md) — bearer token, basic auth, and user/role management via SQL.
-- [Error handling](docs/errors.md) — the exception hierarchy and recovery patterns.
+- [Quickstart](docs/quickstart.md) - install, start the daemon, write and run a complete program.
+- [Batch transactions](docs/transactions.md) - atomic multi-op commits, idempotency, and retry.
+- [Native query builder](docs/queries.md) - every condition type and the alias translation rules.
+- [SQL](docs/sql.md) - recursive CTEs, window functions, `CREATE TABLE AS SELECT`.
+- [Authentication](docs/auth.md) - bearer token, basic auth, and user/role management via SQL.
+- [Error handling](docs/errors.md) - the exception hierarchy and recovery patterns.
 
 ## Quick Example
 
@@ -102,12 +102,12 @@ discard txn.put("orders", {1'i64: %11'i64, 2'i64: %"Eve",  3'i64: %75.00})
 discard txn.deleteByPk("orders", %2'i64)
 
 try:
-  let results = txn.commit() # atomic — all or nothing
+  let results = txn.commit() # atomic - all or nothing
 except ConflictError as e:
   # A constraint violation rolls back every op.
   echo "duplicate: ", e.msg, " code=", e.code, " op=", e.opIndex
 
-# Idempotent commit — safe to retry; the daemon returns the original response.
+# Idempotent commit - safe to retry; the daemon returns the original response.
 let txn2 = db.begin()
 discard txn2.put("orders", {1'i64: %20'i64, 2'i64: %"Frank", 3'i64: %100.00})
 discard txn2.commit("order-20-create")
@@ -252,7 +252,7 @@ except QueryError as e:
 
 | Type | HTTP status | Meaning |
 |-------|-------------|---------|
-| `MongrelDBError` | — | Base type for every client failure |
+| `MongrelDBError` | - | Base type for every client failure |
 | `AuthError` | 401, 403 | Bad or missing credentials |
 | `NotFoundError` | 404 | Missing table, schema, or resource |
 | `ConflictError` | 409 | Unique/FK/check/trigger violation |
@@ -298,7 +298,7 @@ chmod +x bin/mongreldb-server
 Contributions are welcome. Please:
 
 1. Open an issue first for non-trivial changes.
-2. Add focused tests near your change — the suite must stay green.
+2. Add focused tests near your change - the suite must stay green.
 3. Keep the client dependency-free (Nim standard library only) and free of engine C ABI bindings.
 
 ## License

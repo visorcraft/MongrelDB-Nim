@@ -2,7 +2,7 @@
 
 `db.query(table)` returns a `QueryBuilder` that targets the daemon's
 `/kit/query` endpoint. Conditions push down to the engine's specialized native
-indexes for sub-millisecond lookups — the daemon never scans the whole table
+indexes for sub-millisecond lookups - the daemon never scans the whole table
 to answer them.
 
 This guide lists every condition type, the alias translation rules, projection,
@@ -59,7 +59,7 @@ aliased to `pattern`. For every other condition (e.g. `pk`, `bitmap_eq`),
 
 ## Condition types
 
-### `pk` — exact primary-key match
+### `pk` - exact primary-key match
 
 Returns the single row whose primary key equals `value`:
 
@@ -69,7 +69,7 @@ discard db.query("orders")
     .execute()
 ```
 
-### `bitmap_eq` — equality on a bitmap-indexed column
+### `bitmap_eq` - equality on a bitmap-indexed column
 
 For low-cardinality columns (categories, booleans, enums):
 
@@ -79,7 +79,7 @@ discard db.query("orders")
     .execute()
 ```
 
-### `bitmap_in` — IN predicate on a bitmap-indexed column
+### `bitmap_in` - IN predicate on a bitmap-indexed column
 
 Returns rows where the column equals any of the listed values:
 
@@ -89,7 +89,7 @@ discard db.query("orders")
     .execute()
 ```
 
-### `range` — integer range predicate
+### `range` - integer range predicate
 
 Closed or half-open integer ranges. `min`/`max` are inclusive by default;
 override with `min_inclusive`/`max_inclusive`:
@@ -107,7 +107,7 @@ discard db.query("orders")
     .execute()
 ```
 
-### `range_f64` — float range predicate
+### `range_f64` - float range predicate
 
 Same shape as `range`, for `float64` columns:
 
@@ -117,7 +117,7 @@ discard db.query("orders")
     .execute()
 ```
 
-### `is_null` / `is_not_null` — null checks
+### `is_null` / `is_not_null` - null checks
 
 ```nim
 discard db.query("orders")
@@ -129,7 +129,7 @@ discard db.query("orders")
     .execute()
 ```
 
-### `fm_contains` — full-text substring search (FM-index)
+### `fm_contains` - full-text substring search (FM-index)
 
 Substring search backed by a FM-index. `value` is aliased to `pattern`:
 
@@ -140,7 +140,7 @@ discard db.query("documents")
     .execute()
 ```
 
-### `fm_contains_all` — multiple substring patterns
+### `fm_contains_all` - multiple substring patterns
 
 All patterns must match:
 
@@ -154,7 +154,7 @@ discard db.query("documents")
     .execute()
 ```
 
-### `ann` — dense vector similarity (HNSW)
+### `ann` - dense vector similarity (HNSW)
 
 Approximate nearest-neighbor search over a dense vector index (HNSW). Pass the
 query vector and the number of neighbors to return:
@@ -169,7 +169,7 @@ discard db.query("embeddings")
     .execute()
 ```
 
-### `sparse_match` — sparse vector match
+### `sparse_match` - sparse vector match
 
 Match against a sparse vector index (e.g. BM25-style sparse retrieval):
 
@@ -183,7 +183,7 @@ discard db.query("docs")
     .execute()
 ```
 
-### `min_hash_similar` — MinHash similarity
+### `min_hash_similar` - MinHash similarity
 
 Jaccard-style similarity over MinHash signatures:
 
@@ -222,7 +222,7 @@ let q = db.query("orders")
     .limit(100)
 let rows = q.execute()
 if q.truncated():
-  # More than 100 rows matched — raise the limit or paginate.
+  # More than 100 rows matched - raise the limit or paginate.
   discard
 ```
 
@@ -281,6 +281,6 @@ complete.
 
 ## Next steps
 
-- [sql.md](sql.md) — when the typed builder is not enough
-- [transactions.md](transactions.md) — atomic writes
-- [errors.md](errors.md) — `QueryError` and friends
+- [sql.md](sql.md) - when the typed builder is not enough
+- [transactions.md](transactions.md) - atomic writes
+- [errors.md](errors.md) - `QueryError` and friends

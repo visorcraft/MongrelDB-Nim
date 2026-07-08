@@ -44,7 +44,7 @@ discard txn.delete("orders", 7'i64)
 ```
 
 `put(table, cells, returning)` stages an insert. Set `returning = true` to ask
-the daemon to echo the written row back in the per-operation result — useful
+the daemon to echo the written row back in the per-operation result - useful
 when you want server-generated values without a second round trip.
 
 `count` reports how many ops are staged:
@@ -72,7 +72,7 @@ is a `JsonNode`; its shape depends on the op and the `returning` flag.
 ## Idempotency keys
 
 `commit(idempotencyKey)` makes the commit safe to retry. Pass a stable, unique
-key — the daemon stores it and returns the original response on duplicate
+key - the daemon stores it and returns the original response on duplicate
 commits, even across daemon restarts:
 
 ```nim
@@ -80,7 +80,7 @@ let txn = db.begin()
 discard txn.put("orders", {1'i64: %20'i64, 2'i64: %"Frank", 3'i64: %100.00})
 
 # If this call times out or the network drops, replaying the same ops under
-# the same key is safe — the daemon deduplicates.
+# the same key is safe - the daemon deduplicates.
 discard txn.commit("order-20-create")
 ```
 
@@ -150,10 +150,10 @@ proc commitWithRetry(txn: Transaction; key: string): seq[JsonNode] =
     try:
       return txn.commit(key)
     except ConflictError:
-      raise # constraint violation — do NOT retry blindly
+      raise # constraint violation - do NOT retry blindly
     except QueryError as e:
       if e.status == -1 or (e.status >= 500 and e.status < 600):
-        sleep(100) # transport or server error — safe to retry
+        sleep(100) # transport or server error - safe to retry
         continue
       raise
   raise newException(IOError, "commit failed after 3 attempts")
@@ -173,7 +173,7 @@ key.
 is a `ref`, not synchronized. Stage and commit from one flow of control.
 
 **Expecting per-op atomicity.** The atomicity unit is the whole batch. A
-single bad op rolls back the good ones too — that is the point. Validate data
+single bad op rolls back the good ones too - that is the point. Validate data
 before staging if you want to avoid the round trip.
 
 **Swallowing `ConflictError`.** The `.code` and `.opIndex` fields tell you
@@ -182,6 +182,6 @@ quick fix and a guessing game.
 
 ## Next steps
 
-- [queries.md](queries.md) — read patterns
-- [errors.md](errors.md) — the full exception hierarchy
-- [sql.md](sql.md) — when to choose SQL over the typed API
+- [queries.md](queries.md) - read patterns
+- [errors.md](errors.md) - the full exception hierarchy
+- [sql.md](sql.md) - when to choose SQL over the typed API

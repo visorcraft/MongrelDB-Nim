@@ -45,7 +45,7 @@ jobs:
         run: nim c --path:src --run tests/test_query.nim
 
       - name: Build live-test executable
-        # Compiled but not run here — the live job boots a real daemon.
+        # Compiled but not run here - the live job boots a real daemon.
         run: nim c --path:src --mm:orc -o:build/live_test src/mongreldb/tests/live_test.nim
 
   live:

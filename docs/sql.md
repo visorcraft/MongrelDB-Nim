@@ -22,8 +22,8 @@ for row in rows:
   echo row
 ```
 
-For statements that produce no row set — DDL, DML, or a result streamed as
-Arrow IPC bytes — `sql` returns an empty seq and does not raise. Success is
+For statements that produce no row set - DDL, DML, or a result streamed as
+Arrow IPC bytes - `sql` returns an empty seq and does not raise. Success is
 the absence of an exception:
 
 ```nim
@@ -93,7 +93,7 @@ denormalized or pre-filtered tables for analysis.
 ## DDL and catalog
 
 Beyond the typed `createTable` / `dropTable` helpers, SQL covers the rest of
-the catalog surface — materialized views, indexes, and user/role management
+the catalog surface - materialized views, indexes, and user/role management
 (see [auth.md](auth.md) for the auth-specific statements):
 
 ```nim
@@ -136,6 +136,6 @@ the client. For large analytical queries, raise the client timeout
 
 ## Next steps
 
-- [queries.md](queries.md) — the native index query builder
-- [transactions.md](transactions.md) — atomic writes
-- [auth.md](auth.md) — `CREATE USER`, roles, and grants
+- [queries.md](queries.md) - the native index query builder
+- [transactions.md](transactions.md) - atomic writes
+- [auth.md](auth.md) - `CREATE USER`, roles, and grants
