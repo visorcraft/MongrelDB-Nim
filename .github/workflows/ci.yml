@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & offline tests (Nim ${{ matrix.nim }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 2.0 is the supported minimum; 2.2.x is the current stable.
+        nim: ['2.0.0', 'stable']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Nim ${{ matrix.nim }}
+        uses: alaviss/setup-nim-action@v2
+        with:
+          nim-version: ${{ matrix.nim }}
+
+      - name: Print Nim version
+        run: nim --version | head -n 1
+
+      - name: Validate package manifest
+        run: nimble check
+
+      - name: Build library
+        # This is a library package (no `bin`), so compile the main module
+        # directly (compile-to-C without linking) to exercise the whole public
+        # surface without producing an executable.
+        run: nim c --path:src --noLinking:on src/mongreldb.nim
+
+      - name: Run offline unit tests
+        run: nim c --path:src --run tests/test_query.nim
+
+      - name: Build live-test executable
+        # Compiled but not run here — the live job boots a real daemon.
+        run: nim c --path:src --mm:orc -o:build/live_test src/mongreldb/tests/live_test.nim
+
+  live:
+    # Boots a real mongreldb-server and runs the live round-trip suite.
+    name: Live integration (against mongreldb-server)
+    runs-on: ubuntu-latest
+    env:
+      SERVER_VERSION: '0.43.3'
+      # The test harness boots the daemon itself from this binary path.
+      MONGRELDB_SERVER: ./bin/mongreldb-server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Nim
+        uses: alaviss/setup-nim-action@v2
+        with:
+          nim-version: 'stable'
+
+      - name: Build live-test executable
+        run: nim c --path:src --mm:orc -o:build/live_test src/mongreldb/tests/live_test.nim
+
+      - name: Cache mongreldb-server binary
+        id: server-cache
+        uses: actions/cache@v4
+        with:
+          path: bin/mongreldb-server
+          key: mongreldb-server-linux-x64-${{ env.SERVER_VERSION }}
+
+      - name: Download mongreldb-server
+        if: steps.server-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p bin
+          curl -fsSL -o bin/mongreldb-server \
+            "https://github.com/visorcraft/MongrelDB/releases/download/v${SERVER_VERSION}/mongreldb-server-linux-x64"
+          chmod +x bin/mongreldb-server
+          ./bin/mongreldb-server --help | head -n 1
+
+      - name: Run live tests
+        # The harness resolves the binary via MONGRELDB_SERVER, boots it on a
+        # free port, runs the suite, and tears it down on exit.
+        run: ./build/live_test
+
+      - name: Dump server log on failure
+        if: failure()
+        run: |
+          # The harness writes its server log to /tmp next to the data dir;
+          # print the most recent one if present.
+          log="$(ls -t /tmp/mongreldb-nim-test-*.log 2>/dev/null | head -n 1)"
+          if [ -n "$log" ]; then cat "$log"; fi
