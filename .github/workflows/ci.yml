@@ -22,7 +22,7 @@ jobs:
         nim: ['2.0.0', 'stable']
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Nim ${{ matrix.nim }}
         uses: jiro4989/setup-nim-action@v2
@@ -58,7 +58,7 @@ jobs:
       MONGRELDB_SERVER: ./bin/mongreldb-server
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Nim
         uses: jiro4989/setup-nim-action@v2
@@ -70,7 +70,7 @@ jobs:
 
       - name: Cache mongreldb-server binary
         id: server-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: bin/mongreldb-server
           key: mongreldb-server-linux-x64-${{ env.SERVER_VERSION }}
