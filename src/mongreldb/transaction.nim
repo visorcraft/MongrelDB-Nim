@@ -79,10 +79,15 @@ proc commit*(t: Transaction; idempotencyKey = ""): seq[JsonNode] =
   ##     `ConflictError` if a constraint violation rolled back the batch.
   if t.committed:
     raise newException(ValueError, alreadyCommittedMsg)
-  t.committed = true
   if t.ops.len == 0:
+    t.committed = true
     return @[]
-  return t.client.commitTxn(t.ops, idempotencyKey)
+  # Send first, mark committed only after the server confirms. This keeps
+  # the transaction retryable (with an idempotency key) if the network call
+  # fails or times out.
+  let results = t.client.commitTxn(t.ops, idempotencyKey)
+  t.committed = true
+  return results
 
 proc rollback*(t: Transaction) =
   ## Discard all staged operations. Raises `ValueError` if the transaction was

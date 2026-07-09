@@ -36,9 +36,10 @@ proc main() =
       "max -> hi")
   check(rangeNorm["column_id"].getInt() == 3, "range column -> column_id")
 
-  # URL path escape leaves safe strings and slashes alone.
+  # URL path escape: only RFC 3986 unreserved chars pass through; '/' is
+  # encoded so it cannot inject an extra path segment.
   check(urlPathEscape("orders") == "orders", "escape leaves safe string")
-  check(urlPathEscape("a/b") == "a/b", "escape leaves slash")
+  check(urlPathEscape("a/b") == "a%2Fb", "escape encodes slash")
   check(urlPathEscape("a b") == "a%20b", "escape encodes space")
 
   if failed == 0:

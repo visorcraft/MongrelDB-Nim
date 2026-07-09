@@ -282,20 +282,20 @@ proc commitTxn*(db: MongrelDB; ops: seq[JsonNode]; idempotencyKey: string): seq[
   result = decodeResults(resp)
 
 proc urlPathEscape*(seg: string): string =
-  ## Percent-encode a path segment (used for table names that may contain
-  ## characters unsafe in a URL). It does not escape the forward slash so
-  ## compound identifiers survive.
+  ## Percent-encode a path segment so table names containing '/', '?', '#',
+  ## or spaces cannot inject extra segments or break routing. Only RFC 3986
+  ## unreserved characters pass through unescaped.
   const hex = "0123456789ABCDEF"
   var needEscape = false
   for b in seg:
-    if b notin {'A'..'Z', 'a'..'z', '0'..'9', '-', '_', '.', '~', '/'}:
+    if b notin {'A'..'Z', 'a'..'z', '0'..'9', '-', '_', '.', '~'}:
       needEscape = true
       break
   if not needEscape:
     return seg
   result = newStringOfCap(seg.len * 3)
   for b in seg:
-    if b in {'A'..'Z', 'a'..'z', '0'..'9', '-', '_', '.', '~', '/'}:
+    if b in {'A'..'Z', 'a'..'z', '0'..'9', '-', '_', '.', '~'}:
       result.add(b)
     else:
       let bb = byte(b)
