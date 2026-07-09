@@ -5,6 +5,11 @@ AGENTS.md
 nimcache/
 build/
 bin/
+
+# Compiled example binaries (e.g. `nim c --run examples/basic_crud.nim`).
+examples/basic_crud
+examples/query_builder
+examples/transactions
 *.exe
 *.dll
 *.so
