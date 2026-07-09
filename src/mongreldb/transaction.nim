@@ -36,6 +36,8 @@ proc put*(t: Transaction; table: string;
     cells: openArray[(int64, JsonNode)]; returning = false): Transaction =
   ## Stage an insert. `returning`, when `true`, asks the daemon to echo the row
   ## in the per-operation result. Returns `t` for chaining.
+  if t.committed:
+    raise newException(ValueError, alreadyCommittedMsg)
   var op = newJObject()
   var putOp = newJObject()
   putOp["table"] = %table
@@ -47,6 +49,8 @@ proc put*(t: Transaction; table: string;
 
 proc delete*(t: Transaction; table: string; rowId: int64): Transaction =
   ## Stage a delete by the internal row id. Returns `t` for chaining.
+  if t.committed:
+    raise newException(ValueError, alreadyCommittedMsg)
   var op = newJObject()
   var del = newJObject()
   del["table"] = %table
@@ -57,6 +61,8 @@ proc delete*(t: Transaction; table: string; rowId: int64): Transaction =
 
 proc deleteByPk*(t: Transaction; table: string; pk: JsonNode): Transaction =
   ## Stage a delete by primary-key value. Returns `t` for chaining.
+  if t.committed:
+    raise newException(ValueError, alreadyCommittedMsg)
   var op = newJObject()
   var del = newJObject()
   del["table"] = %table
