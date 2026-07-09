@@ -40,9 +40,12 @@ discard db.put(table, {1'i64: %5'i64, 2'i64: %"Eve", 3'i64: %12.5})
 echo "Inserted 5 rows"
 
 # Range condition: scores in [60.0, 90.0]. The "column" alias maps to the
-# server's column_id; pass the numeric column id (3), not the name.
+# server's column_id; pass the numeric column id (3), not the name. The "score"
+# column is float64, so use the range_f64 condition (plain "range" expects an
+# i64 bound and rejects floating-point values). range_f64 also requires the
+# inclusivity flags (min_inclusive/max_inclusive -> lo_inclusive/hi_inclusive).
 let rng = db.query(table)
-    .where("range", parseJson("""{"column": 3, "min": 60.0, "max": 90.0}"""))
+    .where("range_f64", parseJson("""{"column": 3, "min": 60.0, "max": 90.0, "min_inclusive": true, "max_inclusive": true}"""))
     .execute()
 echo "Range query (score in [60,90]) returned ", rng.len, " rows:"
 for row in rng:
