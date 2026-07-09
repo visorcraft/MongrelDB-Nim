@@ -128,6 +128,26 @@ proc runTests(db: MongrelDB) =
     discard db.put(name, {1'i64: %2'i64, 2'i64: %150.0})
     check(db.count(name) == 2, "count == 2 after two puts")
 
+  # upsert inserts then updates on PK conflict
+  block:
+    let name = uniqueTable("nim_upsert")
+    discard db.createTable(name, [
+      Column(id: 1, name: "id", ty: "int64", primaryKey: true, nullable: false),
+      Column(id: 2, name: "amount", ty: "float64", primaryKey: false, nullable: false),
+    ])
+    # First upsert inserts.
+    discard db.upsert(name, {1'i64: %1'i64, 2'i64: %99.5}, {2'i64: %99.5})
+    check(db.count(name) == 1, "upsert inserts (count == 1)")
+    # Second upsert on the same PK updates (still one row).
+    discard db.upsert(name, {1'i64: %1'i64, 2'i64: %120.0}, {2'i64: %120.0})
+    check(db.count(name) == 1, "upsert updates (count still 1)")
+
+    # The updated value is returned by a query.
+    let params = parseJson("""{"value": 1}""")
+    var q = db.query(name).where("pk", params)
+    let rows = q.execute()
+    check(rows.len == 1, "upsert: pk query returns 1 row")
+
   # query by pk
   block:
     let name = uniqueTable("nim_pk")

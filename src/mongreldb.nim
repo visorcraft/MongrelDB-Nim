@@ -376,6 +376,26 @@ proc put*(db: MongrelDB; table: string; cells: openArray[(int64, JsonNode)];
   let results = db.commitTxn(@[op], idempotencyKey)
   return firstResult(results)
 
+proc upsert*(db: MongrelDB; table: string; cells: openArray[(int64, JsonNode)];
+    updateCells: openArray[(int64, JsonNode)] = @[];
+    idempotencyKey: string = ""): JsonNode =
+  ## Upsert (insert or update on PK conflict) a row. `cells` are the insert
+  ## values as `(column_id, value)` pairs; `updateCells`, when non-empty, are
+  ## the values to apply on a primary-key conflict (an empty seq means DO
+  ## NOTHING). `idempotencyKey`, when non-empty, makes the commit safe to retry.
+  ##
+  ## Returns the per-operation result object (the first element of the
+  ## server's results array), or an empty object if none.
+  var op = newJObject()
+  var upsertOp = newJObject()
+  upsertOp["table"] = %table
+  upsertOp["cells"] = flattenCells(cells)
+  if updateCells.len > 0:
+    upsertOp["update_cells"] = flattenCells(updateCells)
+  op["upsert"] = upsertOp
+  let results = db.commitTxn(@[op], idempotencyKey)
+  return firstResult(results)
+
 proc deleteByPk*(db: MongrelDB; table: string; pk: JsonNode) =
   ## Remove a row by its primary-key value.
   var op = newJObject()
