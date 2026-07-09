@@ -213,7 +213,10 @@ proc request*(db: MongrelDB; verb, path: string; body: string): string =
   ## to typed exceptions via `toException`.
   let url = db.baseURL & "/" & path.strip(chars = {'/'}, leading = true)
   let m = methodToEnum(verb)
-  var client = newHttpClient(timeout = db.timeoutMs)
+  # maxRedirects = 0 prevents the client from following redirects, which
+  # would otherwise leak the Authorization header to whatever host the
+  # redirect points at.
+  var client = newHttpClient(timeout = db.timeoutMs, maxRedirects = 0)
   defer: client.close()
   client.headers = newHttpHeaders({"Accept": "application/json"})
   if body.len > 0:
