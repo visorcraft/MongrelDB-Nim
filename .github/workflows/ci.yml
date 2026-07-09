@@ -89,6 +89,13 @@ jobs:
         # free port, runs the suite, and tears it down on exit.
         run: ./build/live_test
 
+      - name: Run examples
+        run: |
+          for ex in examples/*.nim; do
+            echo "=== Running $ex ==="
+            nim c -r -p:src "$ex" || { echo "FAILED: $ex"; exit 1; }
+          done
+
       - name: Dump server log on failure
         if: failure()
         run: |
