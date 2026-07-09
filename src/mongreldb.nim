@@ -25,6 +25,9 @@ import std/[base64, httpclient, json, strutils, tables, uri]
 const
   defaultBaseURL* = "http://127.0.0.1:8453"
     ## The daemon address used when none is supplied.
+  maxResponseBytes* = 268435456
+    ## Caps the size of a response body read from the daemon (256 MB). Bodies
+    ## larger than this raise a `QueryError`.
 
 type
   MongrelDBError* = ref object of CatchableError
@@ -232,6 +235,11 @@ proc request*(db: MongrelDB; verb, path: string; body: string): string =
 
   let status = resp.code.int
   let data = resp.body
+  # Cap the response: a body larger than maxResponseBytes is aborted as a
+  # QueryError rather than returning unbounded data.
+  if data.len > maxResponseBytes:
+    raise newQueryError("mongreldb: response body exceeds " & $maxResponseBytes &
+        " bytes", status)
   if status < 200 or status >= 300:
     raise toException(status, data)
   return data
@@ -415,19 +423,21 @@ proc deleteByPk*(db: MongrelDB; table: string; pk: JsonNode) =
 # ── SQL ──────────────────────────────────────────────────────────────────────
 
 proc sql*(db: MongrelDB; sqlText: string): seq[JsonNode] =
-  ## Execute a SQL statement via the `/sql` endpoint. When the daemon returns
-  ## a JSON result set, the rows are decoded and returned; for statements that
-  ## yield no rows (DDL/DML) or a non-JSON (Arrow IPC) body, it returns an
-  ## empty seq and does not raise.
+  ## Execute a SQL statement via the `/sql` endpoint, requesting JSON output.
+  ## The server returns a JSON array of row objects keyed by column name, e.g.
+  ## `[{"id": 1, "name": "Alice", "score": 95.5}]`. For statements that yield
+  ## no rows (DDL/DML), the body is empty and an empty seq is returned.
   var payload = newJObject()
   payload["sql"] = %sqlText
+  payload["format"] = %"json"
   let body = db.postRaw("/sql", payload)
   let trimmed = body.strip()
   if trimmed.len == 0:
     return @[]
-  # The /sql endpoint generally streams Arrow IPC bytes for SELECTs; only
-  # decode when the body is actually JSON to avoid noise.
-  if trimmed[0] notin {'{', '['}:
+  # JSON format requested; a leading '{' is a single object (e.g. an error
+  # envelope), not a row set, so return an empty seq. A '[' begins the row
+  # array to decode.
+  if trimmed[0] != '[':
     return @[]
   try:
     let parsed = parseJson(body)

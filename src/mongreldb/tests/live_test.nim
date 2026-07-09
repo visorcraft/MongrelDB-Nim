@@ -42,6 +42,44 @@ proc waitForHealth(db: MongrelDB; maxMs: int): bool =
     sleep(500)
   return false
 
+# jsonToLong coerces a JSON number/integer/string to an int64, returning 0 on
+# failure.
+proc jsonToLong(v: JsonNode): int64 =
+  case v.kind
+  of JInt: v.getInt()
+  of JFloat: int64(v.getFloat())
+  of JString:
+    try: parseInt(v.str).int64
+    except ValueError: 0'i64
+  of JBool: (if v.getBool(): 1'i64 else: 0'i64)
+  else: 0'i64
+
+# cellValue looks up a column value in the flat `cells` array of a Kit row
+# (shape: [col_id, value, ...]), returning a JNull node if absent.
+proc cellValue(row: JsonNode; colId: int64): JsonNode =
+  if row.kind != JObject or not row.hasKey("cells") or
+      row["cells"].kind != JArray:
+    return newJNull()
+  let cells = row["cells"]
+  var i = 0
+  while i + 1 < cells.len:
+    if jsonToLong(cells[i]) == colId:
+      return cells[i + 1]
+    inc(i, 2)
+  return newJNull()
+
+# cellInt64 extracts an int64 value for colId from a Kit row.
+proc cellInt64(row: JsonNode; colId: int64): int64 =
+  jsonToLong(cellValue(row, colId))
+
+# cellFloat64 extracts a float64 value for colId from a Kit row.
+proc cellFloat64(row: JsonNode; colId: int64): float =
+  let v = cellValue(row, colId)
+  case v.kind
+  of JFloat: v.getFloat()
+  of JInt: float(v.getInt())
+  else: 0.0
+
 proc resolveServerBinary(): string =
   let env = getEnv("MONGRELDB_SERVER", "")
   if env.len > 0 and fileExists(env):
@@ -142,11 +180,13 @@ proc runTests(db: MongrelDB) =
     discard db.upsert(name, {1'i64: %1'i64, 2'i64: %120.0}, {2'i64: %120.0})
     check(db.count(name) == 1, "upsert updates (count still 1)")
 
-    # The updated value is returned by a query.
+    # The updated value is returned by a query; verify the cell changed.
     let params = parseJson("""{"value": 1}""")
     var q = db.query(name).where("pk", params)
     let rows = q.execute()
     check(rows.len == 1, "upsert: pk query returns 1 row")
+    check(cellInt64(rows[0], 1) == 1, "upsert: returned pk == 1")
+    check(cellFloat64(rows[0], 2) == 120.0, "upsert: updated amount == 120.0")
 
   # query by pk
   block:
@@ -160,6 +200,7 @@ proc runTests(db: MongrelDB) =
     var q = db.query(name).where("pk", params)
     let rows = q.execute()
     check(rows.len == 1, "pk query returns 1 row")
+    check(cellInt64(rows[0], 1) == 42, "pk query returns the queried pk")
 
   # query range + truncated
   block:
@@ -175,8 +216,11 @@ proc runTests(db: MongrelDB) =
     let params = parseJson("""{"column": 2, "min": 100, "max": 150}""")
     var q = db.query(name).where("range", params).limit(100)
     let rows = q.execute()
-    check(rows.len >= 1, "range query returns >= 1 row")
+    # Only the row with amount=120 (pk=2) falls in [100, 150].
+    check(rows.len == 1, "range query returns exactly 1 row")
     check(not q.truncated, "range query not truncated")
+    check(cellInt64(rows[0], 1) == 2, "range query: returned pk == 2")
+    check(cellInt64(rows[0], 2) == 120, "range query: returned amount == 120")
 
   # transaction put + commit
   block:
@@ -203,10 +247,18 @@ proc runTests(db: MongrelDB) =
     db.deleteByPk(name, %5'i64)
     check(db.count(name) == 0, "deleteByPk: count == 0 after delete")
 
-  # sql (SELECT 1 streams Arrow IPC rather than JSON; just assert it runs)
+  # sql: INSERT via SQL increases the count; JSON SELECT returns the row.
   block:
-    discard db.sql("SELECT 1")
-    check(true, "sql SELECT 1 runs")
+    let name = uniqueTable("nim_sql")
+    discard db.createTable(name, [
+      Column(id: 1, name: "id", ty: "int64", primaryKey: true, nullable: false),
+      Column(id: 2, name: "amount", ty: "int64", primaryKey: false, nullable: false),
+    ])
+    check(db.count(name) == 0, "sql: count == 0 before insert")
+    discard db.sql(&"INSERT INTO {name} (id, amount) VALUES (10, 42)")
+    check(db.count(name) == 1, "sql: count increased to 1 after INSERT")
+    let rows = db.sql(&"SELECT id, amount FROM {name}")
+    check(rows.len == 1, "sql: JSON SELECT returns 1 row")
 
   # schema + schemaFor
   block:
