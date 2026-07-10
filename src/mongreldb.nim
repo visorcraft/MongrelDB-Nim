@@ -15,7 +15,7 @@
 ##    if db.health():
 ##      echo "daemon is up"
 
-import std/[base64, httpclient, json, strutils, tables, uri]
+import std/[base64, httpclient, json, options, strutils, tables, uri]
 
 # NOTE: the submodule imports (mongreldb/transaction, mongreldb/query) are at
 # the BOTTOM of this file. They import `mongreldb` for the MongrelDB type and
@@ -55,13 +55,18 @@ type
 
   Column* = object
     ## Describes one column in a CREATE TABLE request. Serialized verbatim;
-    ## the recognized keys are `id`, `name`, `ty`, `primary_key`, and
-    ## `nullable`, matching the daemon's table-create extractor.
+    ## the recognized keys are `id`, `name`, `ty`, `primary_key`,
+    ## `nullable`, and — when present — `enum_variants` and `default_value`,
+    ## matching the daemon's table-create extractor.
     id*: int64
     name*: string
     ty*: string
     primaryKey*: bool
     nullable*: bool
+    enumVariants*: seq[string]
+      ## Enum variant names; emitted as `enum_variants` only when non-empty.
+    defaultValue*: Option[string]
+      ## Column default; emitted as `default_value` only when present.
 
   MongrelDB* = object
     ## The MongrelDB HTTP client. Build one with `newMongrelDB` and use its
@@ -344,18 +349,27 @@ proc tableNames*(db: MongrelDB): seq[string] =
   for entry in v:
     result.add(if entry.kind == JString: entry.str else: $entry)
 
+proc columnToJsonNode*(c: Column): JsonNode =
+  ## Serialize a single `Column` to its request JSON shape. `enum_variants`
+  ## is included only when `enumVariants` is non-empty, and `default_value`
+  ## only when `defaultValue` is present.
+  result = newJObject()
+  result["id"] = %c.id
+  result["name"] = %c.name
+  result["ty"] = %c.ty
+  result["primary_key"] = %c.primaryKey
+  result["nullable"] = %c.nullable
+  if c.enumVariants.len > 0:
+    result["enum_variants"] = %c.enumVariants
+  if c.defaultValue.isSome:
+    result["default_value"] = %c.defaultValue.get()
+
 proc createTable*(db: MongrelDB; name: string; columns: openArray[Column]): int64 =
   ## Create a table named `name` with the given columns and return the
   ## assigned table id.
   var colArr = newJArray()
   for c in columns:
-    var obj = newJObject()
-    obj["id"] = %c.id
-    obj["name"] = %c.name
-    obj["ty"] = %c.ty
-    obj["primary_key"] = %c.primaryKey
-    obj["nullable"] = %c.nullable
-    colArr.add(obj)
+    colArr.add(columnToJsonNode(c))
   var payload = newJObject()
   payload["name"] = %name
   payload["columns"] = colArr
