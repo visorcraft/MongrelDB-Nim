@@ -185,12 +185,22 @@ proc toException(status: int; body: string): MongrelDBError =
   else:
     return QueryError(msg: message, status: status, code: code, opIndex: opIndex)
 
+# rejectCrlf guards against CRLF injection into HTTP headers by raising a
+# QueryError when a value contains a carriage return or line feed. Without it,
+# a token or password containing "\r\n" could smuggle extra header lines.
+proc rejectCrlf(value, field: string) =
+  if '\r' in value or '\n' in value:
+    raise newQueryError("mongreldb: illegal CR/LF in " & field & " value")
+
 # applyAuth sets the Authorization header according to the configured
 # credentials. A bearer token takes precedence over basic auth.
 proc applyAuth(db: MongrelDB; client: HttpClient) =
   if db.token.len > 0:
+    rejectCrlf(db.token, "token")
     client.headers["Authorization"] = "Bearer " & db.token
   elif db.username.len > 0:
+    rejectCrlf(db.username, "username")
+    rejectCrlf(db.password, "password")
     let creds = db.username & ":" & db.password
     client.headers["Authorization"] = "Basic " & base64.encode(creds)
 
