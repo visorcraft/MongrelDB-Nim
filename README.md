@@ -33,7 +33,7 @@
 - **Fluent query builder** that pushes conditions down to the engine's specialized indexes for sub-millisecond lookups: bitmap equality/IN, learned-range, null checks, FM-index full-text search, HNSW vector similarity (`ann`), and sparse vector match. Friendly aliases (`column` → `column_id`, `min`/`max` → `lo`/`hi`) are translated to the server's on-wire keys.
 - **Idempotent batch transactions** - operations staged locally and committed atomically, with the engine enforcing unique, foreign-key, and check constraints at commit time. Idempotency keys return the original response on duplicate commits, even after a crash.
 - **Full SQL access** through the DataFusion-backed `/sql` endpoint: recursive CTEs, window functions, `CREATE TABLE AS SELECT`, materialized views, and multi-statement execution.
-- **Schema management**: typed table creation, full schema catalog, and per-table descriptors.
+- **Schema management**: typed table creation with `enumVariants` (constrained value sets) and `defaultValue` (server-side defaults), full schema catalog, and per-table descriptors.
 - **Typed exceptions**: `AuthError` (401/403), `NotFoundError` (404), `ConflictError` (409, with error code + op index), and `QueryError` (everything else), all subclasses of `MongrelDBError` carrying the HTTP status and decoded server envelope.
 - **Pluggable auth**: Bearer token (`--auth-token` mode) and HTTP Basic (`--auth-users` mode); the token takes precedence.
 - **User/role/credentials management** via SQL: Argon2id-hashed catalog users, roles, and `GRANT`/`REVOKE` table-level permissions, all executed through `sql`.
@@ -53,22 +53,31 @@ Runnable, end-to-end programs and deep dives for every feature live in
 ## Quick Example
 
 ```nim
-import std/json
+import std/[json, options]
 import mongreldb
 
 # Connect to a running mongreldb-server daemon.
 let db = newMongrelDB("http://127.0.0.1:8453")
 
-# Create a table. Column ids are stable on-wire identifiers.
+# Create a table. Column ids are stable on-wire identifiers. `enumVariants`
+# constrains the allowed values for `status`; the engine rejects writes that
+# don't match the list. `defaultValue` (Option[string]) sets a server-side
+# default that fills in when a put omits the column. Both fields are emitted
+# on the wire only when populated.
 discard db.createTable("orders", [
   Column(id: 1'i64, name: "id",       ty: "int64",   primaryKey: true,  nullable: false),
   Column(id: 2'i64, name: "customer", ty: "varchar", primaryKey: false, nullable: false),
   Column(id: 3'i64, name: "amount",   ty: "float64", primaryKey: false, nullable: false),
+  Column(id: 4'i64, name: "status",   ty: "varchar", primaryKey: false, nullable: false,
+         enumVariants: @["pending", "paid", "shipped"]),
+  Column(id: 5'i64, name: "note",     ty: "varchar", primaryKey: false, nullable: true,
+         defaultValue: some("")),
 ])
 
-# Insert rows (cells pair column id -> value).
-discard db.put("orders", {1'i64: %1'i64, 2'i64: %"Alice", 3'i64: %99.50})
-discard db.put("orders", {1'i64: %2'i64, 2'i64: %"Bob",   3'i64: %150.00})
+# Insert rows (cells pair column id -> value). `status` must be one of the
+# enum variants; `note` is omitted here and the engine backfills the default.
+discard db.put("orders", {1'i64: %1'i64, 2'i64: %"Alice", 3'i64: %99.50, 4'i64: %"pending"})
+discard db.put("orders", {1'i64: %2'i64, 2'i64: %"Bob",   3'i64: %150.00, 4'i64: %"paid"})
 
 # Query with a native index condition (learned-range index).
 let rows = db.query("orders")
@@ -233,6 +242,29 @@ except QueryError as e:
 | `schema()` | Full schema catalog (`OrderedTable[string, JsonNode]`) |
 | `schemaFor(table)` | Single-table descriptor |
 | `begin()` | Start a batch |
+
+### `Column`
+
+`Column` describes one column in a `createTable` call. `id` is the stable
+on-wire identifier referenced everywhere else.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `int64` | Stable on-wire column identifier |
+| `name` | `string` | Human-readable name |
+| `ty` | `string` | Engine type, e.g. `int64`, `varchar`, `float64` |
+| `primaryKey` | `bool` | Marks the column as the primary key |
+| `nullable` | `bool` | Allows NULL values |
+| `enumVariants` | `seq[string]` | Allowed values for an enum column; emitted as `enum_variants` only when non-empty |
+| `defaultValue` | `Option[string]` | Server-side default; emitted as `default_value` only when set |
+
+```nim
+import std/options
+Column(id: 4'i64, name: "status", ty: "varchar",
+       enumVariants: @["pending", "paid", "shipped"])
+Column(id: 5'i64, name: "note", ty: "varchar", nullable: true,
+       defaultValue: some(""))
+```
 
 ### `QueryBuilder`
 

@@ -93,7 +93,7 @@ requires "mongreldb#head"
 Create `demo.nim`:
 
 ```nim
-import std/json
+import std/[json, options]
 import mongreldb
 
 # 1. Connect to the daemon. Empty URL falls back to http://127.0.0.1:8453.
@@ -105,18 +105,27 @@ if not db.health():
   quit(1)
 
 # 3. Create a table. Each Column has a stable numeric id, a name, a type, and
-#    flags. The first column is the primary key.
+#    flags. The first column is the primary key. Two optional fields add
+#    constraint metadata that the engine honors:
+#      - enumVariants  constrains `status` to a fixed set of allowed values;
+#                      writes outside the list raise ConflictError.
+#      - defaultValue  sets a server-side default; `note` is omitted from the
+#                      second insert below, so the engine backfills "".
 let tid = db.createTable("orders", [
   Column(id: 1'i64, name: "id",       ty: "int64",   primaryKey: true,  nullable: false),
   Column(id: 2'i64, name: "customer", ty: "varchar", primaryKey: false, nullable: false),
   Column(id: 3'i64, name: "amount",   ty: "float64", primaryKey: false, nullable: false),
+  Column(id: 4'i64, name: "status",   ty: "varchar", primaryKey: false, nullable: false,
+         enumVariants: @["pending", "paid", "shipped"]),
+  Column(id: 5'i64, name: "note",     ty: "varchar", primaryKey: false, nullable: true,
+         defaultValue: some("")),
 ])
 echo "created table id: ", tid
 
 # 4. Insert rows. Cells are (column_id, JsonNode) pairs. put() is a one-op
 #    transaction; the optional third argument is an idempotency key.
-discard db.put("orders", {1'i64: %1'i64, 2'i64: %"Alice", 3'i64: %99.50})
-discard db.put("orders", {1'i64: %2'i64, 2'i64: %"Bob",   3'i64: %150.00})
+discard db.put("orders", {1'i64: %1'i64, 2'i64: %"Alice", 3'i64: %99.50, 4'i64: %"pending"})
+discard db.put("orders", {1'i64: %2'i64, 2'i64: %"Bob",   3'i64: %150.00, 4'i64: %"paid"})
 
 # 5. Query with a native index condition. The range index serves this in
 #    sub-millisecond. projection() selects only column ids 1 and 2.
@@ -153,6 +162,8 @@ total rows: 2
 | `newMongrelDB(url)` | Builds an HTTP client targeting one daemon. Safe to share across threads once constructed. |
 | `db.health()` | GET `/health`; returns `true` when the daemon answers. Always check before real work. |
 | `db.createTable(name, cols)` | POST `/kit/create_table`. Column `id`s are the on-wire identifiers; use them everywhere else. |
+| `Column(... enumVariants: @[...])` | Constrains a varchar column to a fixed set of values; out-of-set writes raise `ConflictError`. |
+| `Column(... defaultValue: some("..."))` | Server-side default applied when a `put` omits the column. |
 | `db.put(table, cells)` | Single-op transaction: POST `/kit/txn` with one `put` op. `cells` is flattened to `[col_id, val, ...]`. |
 | `db.query(table).where(...)` | Builds a `/kit/query` body. `where` pushes a condition down to a native index. |
 | `.projection([1'i64, 2'i64])` | Server returns only those column ids, saving bandwidth. |
