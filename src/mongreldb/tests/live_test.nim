@@ -293,6 +293,58 @@ proc runTests(db: MongrelDB) =
         break
     check(found, "tableNames lists created table")
 
+  # history retention
+  block:
+    let original = db.historyRetentionEpochs()
+    try:
+      let result = db.setHistoryRetentionEpochs(1000)
+      check(result.historyRetentionEpochs == 1000, "setHistoryRetentionEpochs returns new window")
+      check(result.earliestRetainedEpoch >= 0, "setHistoryRetentionEpochs returns non-negative earliest epoch")
+      check(db.historyRetentionEpochs() == 1000, "historyRetentionEpochs getter")
+      check(db.earliestRetainedEpoch() >= 0, "earliestRetainedEpoch getter returns non-negative epoch")
+    finally:
+      discard db.setHistoryRetentionEpochs(original)
+
+  # history retention: AS OF EPOCH read
+  block:
+    let original = db.historyRetentionEpochs()
+    try:
+      discard db.setHistoryRetentionEpochs(1000)
+      let name = uniqueTable("nim_retention")
+      discard db.createTable(name, [
+        Column(id: 1, name: "id", ty: "int64", primaryKey: true, nullable: false),
+        Column(id: 2, name: "label", ty: "varchar", primaryKey: false, nullable: false),
+      ])
+
+      # Insert the initial row and capture the commit epoch.
+      let writeResp = db.request("POST", "/kit/txn", $(%*{
+        "ops": [{"put": {"table": name, "cells": [1, 1, 2, "first"]}}]
+      }))
+      let writeEpoch = parseJson(writeResp)["epoch"].getBiggestInt()
+
+      # Update the row so a later epoch exists.
+      let updateResp = db.request("POST", "/kit/txn", $(%*{
+        "ops": [{"upsert": {
+          "table": name,
+          "cells": [1, 1, 2, "second"],
+          "update_cells": [2, "second"]
+        }}]
+      }))
+      let updateEpoch = parseJson(updateResp)["epoch"].getBiggestInt()
+      check(updateEpoch > writeEpoch, "update advances epoch")
+
+      # Current value is "second".
+      let current = db.sql(&"SELECT label FROM {name} WHERE id = 1")
+      check(current.len == 1, "current read returns one row")
+      check(current[0]["label"].getStr() == "second", "current label is second")
+
+      # Historical read at the original write epoch should still see "first".
+      let historical = db.sql(&"SELECT label FROM {name} AS OF EPOCH {writeEpoch} WHERE id = 1")
+      check(historical.len == 1, "historical read returns one row")
+      check(historical[0]["label"].getStr() == "first", "historical label is first")
+    finally:
+      discard db.setHistoryRetentionEpochs(original)
+
   # error: schemaFor on a nonexistent table raises NotFoundError
   block:
     let name = uniqueTable("nim_missing")

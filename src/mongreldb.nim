@@ -55,9 +55,11 @@ type
 
   Column* = object
     ## Describes one column in a CREATE TABLE request. Serialized verbatim;
-    ## the recognized keys are `id`, `name`, `ty`, `primary_key`,
-    ## `nullable`, and — when present — `enum_variants` and `default_value`,
-    ## matching the daemon's table-create extractor.
+    ## the recognized keys are `id`, `name`, `ty`, `primary_key`, `nullable`,
+    ## and — when present — `enum_variants`, `default_value`, and
+    ## `default_expr`, matching the daemon's table-create extractor. When
+    ## multiple default fields are set, client-side precedence is
+    ## `defaultExpr` → `defaultValueJson` → `defaultValue`.
     id*: int64
     name*: string
     ty*: string
@@ -70,7 +72,8 @@ type
     defaultValueJson*: Option[JsonNode]
       ## Static JSON scalar. Takes precedence over `defaultValue`.
     defaultExpr*: Option[string]
-      ## Dynamic default: `now` or `uuid`.
+      ## Dynamic default: `now` or `uuid`. Takes precedence over all other
+      ## default fields.
 
   MongrelDB* = object
     ## The MongrelDB HTTP client. Build one with `newMongrelDB` and use its

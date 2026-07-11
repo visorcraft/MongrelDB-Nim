@@ -55,3 +55,8 @@ suite "Column wire shape":
     let wire = $columnToJsonNode(col)
     check(not wire.contains("enum_variants"))
     check(not wire.contains("default_value"))
+
+  test "history retention payload uses the exact frozen key":
+    let body = $(%*{"history_retention_epochs": 42})
+    check body.contains("\"history_retention_epochs\"")
+    check body.contains("\"history_retention_epochs\":42")

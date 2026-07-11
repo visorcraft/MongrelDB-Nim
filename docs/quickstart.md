@@ -130,7 +130,7 @@ discard db.put("orders", {1'i64: %2'i64, 2'i64: %"Bob",   3'i64: %150.00, 4'i64:
 # 5. Query with a native index condition. The range index serves this in
 #    sub-millisecond. projection() selects only column ids 1 and 2.
 let q = db.query("orders")
-    .where("range", parseJson("""{"column": 3, "min": 100.0}"""))
+    .where("range_f64", parseJson("""{"column": 3, "min": 100.0, "max": 200.0, "min_inclusive": true, "max_inclusive": true}"""))
     .projection([1'i64, 2'i64])
     .limit(100)
 let rows = q.execute()
@@ -170,6 +170,7 @@ total rows: 2
 | `.limit(100)` | Caps the result; check `q.truncated` afterward to detect overflow. |
 | `.execute()` | Sends the query and decodes the `rows` array. |
 | `db.count(table)` | GET `/tables/{name}/count`. |
+| `db.setHistoryRetentionEpochs(n)` | PUT `/history/retention`; controls time-travel query depth. |
 
 ## 6. Common pitfalls
 
@@ -180,9 +181,9 @@ string name:
 
 ```nim
 # Wrong:
-.where("range", parseJson("""{"column": "amount", "min": 100.0}"""))
+.where("range_f64", parseJson("""{"column": "amount", "min": 100.0}"""))
 # Right:
-.where("range", parseJson("""{"column": 3, "min": 100.0}"""))
+.where("range_f64", parseJson("""{"column": 3, "min": 100.0, "max": 200.0, "min_inclusive": true, "max_inclusive": true}"""))
 ```
 
 **Treating a single `put` as non-transactional.** `put` is a one-op

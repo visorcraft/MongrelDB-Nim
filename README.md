@@ -4,8 +4,6 @@
 
 <h1 align="center">MongrelDB Nim Client</h1>
 
-History retention: `setHistoryRetentionEpochs`, `historyRetentionEpochs`, and `earliestRetainedEpoch`.
-
 <p align="center">
   <b>Pure Nim client for MongrelDB - embedded+server database with SQL, vector search, full-text search, and AI-native retrieval.</b>
   <br />
@@ -83,9 +81,9 @@ discard db.createTable("orders", [
 discard db.put("orders", {1'i64: %1'i64, 2'i64: %"Alice", 3'i64: %99.50, 4'i64: %"pending"})
 discard db.put("orders", {1'i64: %2'i64, 2'i64: %"Bob",   3'i64: %150.00, 4'i64: %"paid"})
 
-# Query with a native index condition (learned-range index).
+# Query with a native index condition (learned-range index on a float64 column).
 let rows = db.query("orders")
-    .where("range", parseJson("""{"column": 3, "min": 100.0}"""))
+    .where("range_f64", parseJson("""{"column": 3, "min": 100.0, "max": 200.0, "min_inclusive": true, "max_inclusive": true}"""))
     .projection([1'i64, 2'i64])
     .limit(100)
     .execute()
@@ -138,8 +136,9 @@ discard txn2.commit("order-20-create")
 
 Conditions push down to the engine's specialized indexes. The builder accepts
 friendly aliases that are translated to the server's on-wire keys: `column`
-(→ `column_id`), `min`/`max` (→ `lo`/`hi`). The canonical keys are also
-accepted directly.
+(→ `column_id`), `min`/`max` (→ `lo`/`hi`), `min_inclusive`/`max_inclusive`
+(→ `lo_inclusive`/`hi_inclusive`). The canonical keys are also accepted directly.
+Use `range` for integer columns and `range_f64` for float64 columns.
 
 ```nim
 # Bitmap equality (low-cardinality columns).
@@ -147,9 +146,15 @@ discard db.query("orders")
     .where("bitmap_eq", parseJson("""{"column": 2, "value": "Alice"}"""))
     .execute()
 
-# Range query (learned-range index).
+# Range query on a float64 column (use `range` for integer columns).
 discard db.query("orders")
-    .where("range", parseJson("""{"column": 3, "min": 50.0, "max": 150.0}"""))
+    .where("range_f64", parseJson("""{"column": 3, "min": 50.0, "max": 150.0, "min_inclusive": true, "max_inclusive": true}"""))
+    .limit(100)
+    .execute()
+
+# Range query on an integer column.
+discard db.query("orders")
+    .where("range", parseJson("""{"column": 1, "min": 1, "max": 100}"""))
     .limit(100)
     .execute()
 
@@ -161,7 +166,7 @@ discard db.query("documents")
 
 # Check whether a result was capped by the limit.
 let q = db.query("orders")
-    .where("range", parseJson("""{"column": 3, "min": 0}"""))
+    .where("range_f64", parseJson("""{"column": 3, "min": 0.0, "max": 9999.0, "min_inclusive": true, "max_inclusive": true}"""))
     .limit(100)
 let rows = q.execute()
 if q.truncated:
@@ -183,6 +188,28 @@ discard db.sql("SELECT id, ROW_NUMBER() OVER (PARTITION BY customer ORDER BY amo
 > Note: the `/sql` endpoint streams Arrow IPC bytes for `SELECT`s. The client
 > decodes JSON bodies when present and returns an empty seq otherwise (e.g.
 > for DDL/DML or binary result sets).
+
+## History retention
+
+Control how far back time-travel queries can read. The window is measured in
+epochs (monotonically increasing commit numbers).
+
+```nim
+# Keep at least 1000 epochs of history readable.
+let result = db.setHistoryRetentionEpochs(1000)
+echo result.historyRetentionEpochs  # 1000
+echo result.earliestRetainedEpoch   # oldest epoch still available
+
+echo db.historyRetentionEpochs()    # 1000
+echo db.earliestRetainedEpoch()     # oldest readable epoch
+
+# Read a table as it existed at a specific epoch.
+let historical = db.sql("SELECT label FROM orders AS OF EPOCH 42 WHERE id = 1")
+```
+
+Raising retention prevents history from being garbage collected, but it cannot
+restore epochs that have already been pruned. These endpoints require admin
+privileges when the daemon runs with auth enabled.
 
 ## User & role management
 
@@ -245,6 +272,9 @@ except QueryError as e:
 | `sql(sql)` | Execute SQL |
 | `schema()` | Full schema catalog (`OrderedTable[string, JsonNode]`) |
 | `schemaFor(table)` | Single-table descriptor |
+| `setHistoryRetentionEpochs(epochs)` | Set the history retention window |
+| `historyRetentionEpochs()` | Get the current retention window |
+| `earliestRetainedEpoch()` | Get the oldest readable epoch |
 | `begin()` | Start a batch |
 
 ### `Column`
