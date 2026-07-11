@@ -259,6 +259,8 @@ on-wire identifier referenced everywhere else.
 | `nullable` | `bool` | Allows NULL values |
 | `enumVariants` | `seq[string]` | Allowed values for an enum column; emitted as `enum_variants` only when non-empty |
 | `defaultValue` | `Option[string]` | Server-side default; emitted as `default_value` only when set |
+| `defaultValueJson` | `Option[JsonNode]` | Static JSON scalar; takes precedence over `defaultValue` |
+| `defaultExpr` | `Option[string]` | Dynamic default: `now` or `uuid`; takes precedence server-side |
 
 ```nim
 import std/options

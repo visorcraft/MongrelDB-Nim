@@ -35,6 +35,15 @@ suite "Column wire shape":
     check wire.contains("\"checks\":[")
     check wire.contains("\"IsNotNull\":1")
 
+    var scalar = Column(name: "attempts", ty: "int64",
+      defaultValue: some("legacy"), defaultValueJson: some(%3))
+    let scalarWire = $columnToJsonNode(scalar)
+    check scalarWire.contains("\"default_value\":3")
+    scalar.defaultExpr = some("uuid")
+    let exprWire = $columnToJsonNode(scalar)
+    check exprWire.contains("\"default_expr\":\"uuid\"")
+    check(not exprWire.contains("default_value"))
+
   test "enum_variants and default_value are absent when unset":
     var col = Column(
       name: "plain",

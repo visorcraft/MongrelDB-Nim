@@ -67,6 +67,10 @@ type
       ## Enum variant names; emitted as `enum_variants` only when non-empty.
     defaultValue*: Option[string]
       ## Column default; emitted as `default_value` only when present.
+    defaultValueJson*: Option[JsonNode]
+      ## Static JSON scalar. Takes precedence over `defaultValue`.
+    defaultExpr*: Option[string]
+      ## Dynamic default: `now` or `uuid`.
 
   MongrelDB* = object
     ## The MongrelDB HTTP client. Build one with `newMongrelDB` and use its
@@ -361,7 +365,11 @@ proc columnToJsonNode*(c: Column): JsonNode =
   result["nullable"] = %c.nullable
   if c.enumVariants.len > 0:
     result["enum_variants"] = %c.enumVariants
-  if c.defaultValue.isSome:
+  if c.defaultExpr.isSome:
+    result["default_expr"] = %c.defaultExpr.get()
+  elif c.defaultValueJson.isSome:
+    result["default_value"] = c.defaultValueJson.get()
+  elif c.defaultValue.isSome:
     result["default_value"] = %c.defaultValue.get()
 
 proc createTablePayload*(name: string; columns: openArray[Column];
