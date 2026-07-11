@@ -5,6 +5,8 @@ AGENTS.md
 nimcache/
 build/
 bin/
+tests/test_query
+tests/test_wire_shape
 
 # Compiled example binaries (e.g. `nim c --run examples/basic_crud.nim`).
 examples/basic_crud
