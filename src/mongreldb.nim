@@ -353,6 +353,21 @@ proc tableNames*(db: MongrelDB): seq[string] =
   for entry in v:
     result.add(if entry.kind == JString: entry.str else: $entry)
 
+proc historyRetention*(db: MongrelDB): tuple[historyRetentionEpochs, earliestRetainedEpoch: int64] =
+  let v = db.getJson("/history/retention")
+  if v.kind != JObject or not v.hasKey("history_retention_epochs") or not v.hasKey("earliest_retained_epoch"):
+    raise newQueryError("mongreldb: malformed history retention response")
+  (jsonToLong(v["history_retention_epochs"]), jsonToLong(v["earliest_retained_epoch"]))
+
+proc setHistoryRetentionEpochs*(db: MongrelDB; epochs: int64): tuple[historyRetentionEpochs, earliestRetainedEpoch: int64] =
+  let v = parseJson(db.request("PUT", "/history/retention", $(%*{"history_retention_epochs": epochs})))
+  if v.kind != JObject or not v.hasKey("history_retention_epochs") or not v.hasKey("earliest_retained_epoch"):
+    raise newQueryError("mongreldb: malformed history retention response")
+  (jsonToLong(v["history_retention_epochs"]), jsonToLong(v["earliest_retained_epoch"]))
+
+proc historyRetentionEpochs*(db: MongrelDB): int64 = db.historyRetention().historyRetentionEpochs
+proc earliestRetainedEpoch*(db: MongrelDB): int64 = db.historyRetention().earliestRetainedEpoch
+
 proc columnToJsonNode*(c: Column): JsonNode =
   ## Serialize a single `Column` to its request JSON shape. `enum_variants`
   ## is included only when `enumVariants` is non-empty, and `default_value`

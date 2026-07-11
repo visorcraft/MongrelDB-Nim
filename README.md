@@ -4,6 +4,8 @@
 
 <h1 align="center">MongrelDB Nim Client</h1>
 
+History retention: `setHistoryRetentionEpochs`, `historyRetentionEpochs`, and `earliestRetainedEpoch`.
+
 <p align="center">
   <b>Pure Nim client for MongrelDB - embedded+server database with SQL, vector search, full-text search, and AI-native retrieval.</b>
   <br />

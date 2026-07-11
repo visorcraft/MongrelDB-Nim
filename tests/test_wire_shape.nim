@@ -43,6 +43,9 @@ suite "Column wire shape":
     let exprWire = $columnToJsonNode(scalar)
     check exprWire.contains("\"default_expr\":\"uuid\"")
     check(not exprWire.contains("default_value"))
+    check ($columnToJsonNode(Column(id: 5, name: "s", ty: "varchar", defaultValueJson: some(%"draft")))).contains("\"default_value\":\"draft\"")
+    check ($columnToJsonNode(Column(id: 6, name: "b", ty: "bool", defaultValueJson: some(%true)))).contains("\"default_value\":true")
+    check ($columnToJsonNode(Column(id: 7, name: "n", ty: "varchar", defaultValueJson: some(newJNull())))).contains("\"default_value\":null")
 
   test "enum_variants and default_value are absent when unset":
     var col = Column(
