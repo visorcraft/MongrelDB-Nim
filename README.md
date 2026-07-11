@@ -68,14 +68,16 @@ discard db.createTable("orders", [
   Column(id: 1'i64, name: "id",       ty: "int64",   primaryKey: true,  nullable: false),
   Column(id: 2'i64, name: "customer", ty: "varchar", primaryKey: false, nullable: false),
   Column(id: 3'i64, name: "amount",   ty: "float64", primaryKey: false, nullable: false),
-  Column(id: 4'i64, name: "status",   ty: "varchar", primaryKey: false, nullable: false,
+  Column(id: 4'i64, name: "status",   ty: "enum", primaryKey: false, nullable: false,
          enumVariants: @["pending", "paid", "shipped"]),
-  Column(id: 5'i64, name: "note",     ty: "varchar", primaryKey: false, nullable: true,
-         defaultValue: some("")),
-])
+  Column(id: 5'i64, name: "created_at", ty: "timestamp_nanos",
+         defaultValue: some("now")),
+], %*{
+  "checks": [{"id": 1, "name": "id_present", "expr": {"IsNotNull": 1}}],
+})
 
 # Insert rows (cells pair column id -> value). `status` must be one of the
-# enum variants; `note` is omitted here and the engine backfills the default.
+# enum variants; `created_at` is omitted and the engine fills the current time.
 discard db.put("orders", {1'i64: %1'i64, 2'i64: %"Alice", 3'i64: %99.50, 4'i64: %"pending"})
 discard db.put("orders", {1'i64: %2'i64, 2'i64: %"Bob",   3'i64: %150.00, 4'i64: %"paid"})
 

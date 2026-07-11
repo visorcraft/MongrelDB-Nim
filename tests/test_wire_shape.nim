@@ -13,13 +13,27 @@ suite "Column wire shape":
   test "enum_variants and default_value appear when populated":
     var col = Column(
       name: "status",
-      ty: "text",
+      ty: "enum",
       enumVariants: @["a", "b", "c"],
-      defaultValue: some("a"),
     )
-    let wire = $columnToJsonNode(col)
+    let createdAt = Column(
+      name: "created_at",
+      ty: "timestamp_nanos",
+      defaultValue: some("now"),
+    )
+    let constraints = %*{
+      "checks": [{
+        "id": 1,
+        "name": "id_present",
+        "expr": {"IsNotNull": 1},
+      }],
+    }
+    let wire = $createTablePayload("events", [col, createdAt], constraints)
     check wire.contains("\"enum_variants\":[\"a\",\"b\",\"c\"]")
-    check wire.contains("\"default_value\":\"a\"")
+    check wire.contains("\"default_value\":\"now\"")
+    check wire.contains("\"constraints\":{")
+    check wire.contains("\"checks\":[")
+    check wire.contains("\"IsNotNull\":1")
 
   test "enum_variants and default_value are absent when unset":
     var col = Column(

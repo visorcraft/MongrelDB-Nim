@@ -364,15 +364,23 @@ proc columnToJsonNode*(c: Column): JsonNode =
   if c.defaultValue.isSome:
     result["default_value"] = %c.defaultValue.get()
 
-proc createTable*(db: MongrelDB; name: string; columns: openArray[Column]): int64 =
-  ## Create a table named `name` with the given columns and return the
-  ## assigned table id.
+proc createTablePayload*(name: string; columns: openArray[Column];
+    constraints: JsonNode = nil): JsonNode =
+  ## Build the exact JSON object sent to `POST /kit/create_table`.
   var colArr = newJArray()
   for c in columns:
     colArr.add(columnToJsonNode(c))
-  var payload = newJObject()
-  payload["name"] = %name
-  payload["columns"] = colArr
+  result = newJObject()
+  result["name"] = %name
+  result["columns"] = colArr
+  if not constraints.isNil:
+    result["constraints"] = constraints
+
+proc createTable*(db: MongrelDB; name: string; columns: openArray[Column];
+    constraints: JsonNode = nil): int64 =
+  ## Create a table named `name` with the given columns and return the
+  ## assigned table id.
+  let payload = createTablePayload(name, columns, constraints)
   let resp = db.postJson("/kit/create_table", payload)
   if resp.kind == JObject and resp.hasKey("table_id") and
       resp["table_id"].kind == JInt:
@@ -507,4 +515,3 @@ proc begin*(db: MongrelDB): Transaction =
   ## Start a new batch transaction. Operations staged on the returned
   ## `Transaction` are committed atomically in a single `/kit/txn` request.
   result = initTransaction(db)
-
