@@ -29,3 +29,4 @@ Thumbs.db
 *.swp
 *.swo
 *~
+src/mongreldb/tests/live_test
