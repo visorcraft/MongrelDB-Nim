@@ -37,15 +37,34 @@ suite "Column wire shape":
 
     var scalar = Column(name: "attempts", ty: "int64",
       defaultValue: some("legacy"), defaultValueJson: some(%3))
-    let scalarWire = $columnToJsonNode(scalar)
-    check scalarWire.contains("\"default_value\":3")
-    scalar.defaultExpr = some("uuid")
-    let exprWire = $columnToJsonNode(scalar)
-    check exprWire.contains("\"default_expr\":\"uuid\"")
-    check(not exprWire.contains("default_value"))
-    check ($columnToJsonNode(Column(id: 5, name: "s", ty: "varchar", defaultValueJson: some(%"draft")))).contains("\"default_value\":\"draft\"")
-    check ($columnToJsonNode(Column(id: 6, name: "b", ty: "bool", defaultValueJson: some(%true)))).contains("\"default_value\":true")
-    check ($columnToJsonNode(Column(id: 7, name: "n", ty: "varchar", defaultValueJson: some(newJNull())))).contains("\"default_value\":null")
+    let scalarNode = columnToJsonNode(scalar)
+    check scalarNode["default_value"].kind == JInt
+    check scalarNode["default_value"].getInt() == 3
+
+    scalar.defaultExpr = some("now")
+    let exprNode = columnToJsonNode(scalar)
+    check exprNode["default_expr"].kind == JString
+    check exprNode["default_expr"].getStr() == "now"
+    check(not exprNode.hasKey("default_value"))
+
+    let strNode = columnToJsonNode(Column(id: 5, name: "s", ty: "varchar",
+      defaultValueJson: some(%"draft")))
+    check strNode["default_value"].kind == JString
+    check strNode["default_value"].getStr() == "draft"
+
+    let intNode = columnToJsonNode(Column(id: 6, name: "n", ty: "int64",
+      defaultValueJson: some(%7)))
+    check intNode["default_value"].kind == JInt
+    check intNode["default_value"].getInt() == 7
+
+    let boolNode = columnToJsonNode(Column(id: 7, name: "b", ty: "bool",
+      defaultValueJson: some(%true)))
+    check boolNode["default_value"].kind == JBool
+    check boolNode["default_value"].getBool() == true
+
+    let nullNode = columnToJsonNode(Column(id: 8, name: "x", ty: "varchar",
+      defaultValueJson: some(newJNull())))
+    check nullNode["default_value"].kind == JNull
 
   test "enum_variants and default_value are absent when unset":
     var col = Column(
@@ -57,6 +76,8 @@ suite "Column wire shape":
     check(not wire.contains("default_value"))
 
   test "history retention payload uses the exact frozen key":
-    let body = $(%*{"history_retention_epochs": 42})
+    ## Test the client's actual code path, not just Nim's %*{} macro.
+    let body = setHistoryRetentionPayload(42)
     check body.contains("\"history_retention_epochs\"")
     check body.contains("\"history_retention_epochs\":42")
+    check not body.contains("earliest_retained_epoch")

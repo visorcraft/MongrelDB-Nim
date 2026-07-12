@@ -362,8 +362,13 @@ proc historyRetention*(db: MongrelDB): tuple[historyRetentionEpochs, earliestRet
     raise newQueryError("mongreldb: malformed history retention response")
   (jsonToLong(v["history_retention_epochs"]), jsonToLong(v["earliest_retained_epoch"]))
 
+## `setHistoryRetentionPayload` builds the JSON body for PUT /history/retention.
+## Exposed so wire-shape tests can assert the exact key without a daemon.
+proc setHistoryRetentionPayload*(epochs: int64): string =
+  $(%*{"history_retention_epochs": epochs})
+
 proc setHistoryRetentionEpochs*(db: MongrelDB; epochs: int64): tuple[historyRetentionEpochs, earliestRetainedEpoch: int64] =
-  let v = parseJson(db.request("PUT", "/history/retention", $(%*{"history_retention_epochs": epochs})))
+  let v = parseJson(db.request("PUT", "/history/retention", setHistoryRetentionPayload(epochs)))
   if v.kind != JObject or not v.hasKey("history_retention_epochs") or not v.hasKey("earliest_retained_epoch"):
     raise newQueryError("mongreldb: malformed history retention response")
   (jsonToLong(v["history_retention_epochs"]), jsonToLong(v["earliest_retained_epoch"]))
