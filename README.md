@@ -309,6 +309,7 @@ Column(id: 5'i64, name: "note", ty: "varchar", nullable: true,
 | `where(type, params)` | Add a native condition (AND-ed) |
 | `projection(columnIDs)` | Set column projection |
 | `limit(n)` | Set row limit |
+| `offset(n)` | Skip matching rows before the limit |
 | `build()` | Build the request payload |
 | `execute()` | Run the query |
 | `truncated` | Whether the last `execute` result hit the limit |

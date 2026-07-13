@@ -63,6 +63,8 @@ type
     hasProjection: bool
     hasLimit: bool
     limitVal: int64
+    hasOffset: bool
+    offsetVal: int64
     lastTruncated: bool
 
 proc initQueryBuilder*(client: MongrelDB; table: string): QueryBuilder =
@@ -70,6 +72,7 @@ proc initQueryBuilder*(client: MongrelDB; table: string): QueryBuilder =
   ## `MongrelDB.query()` instead of constructing one directly.
   QueryBuilder(client: client, table: table, conditions: @[],
       projection: @[], hasProjection: false, hasLimit: false, limitVal: 0,
+      hasOffset: false, offsetVal: 0,
       lastTruncated: false)
 
 proc where*(q: QueryBuilder; condType: string; params: JsonNode): QueryBuilder =
@@ -97,6 +100,12 @@ proc limit*(q: QueryBuilder; n: int64): QueryBuilder =
   q.limitVal = n
   result = q
 
+proc offset*(q: QueryBuilder; n: int64): QueryBuilder =
+  ## Skip matching rows before applying the limit.
+  q.hasOffset = true
+  q.offsetVal = n
+  result = q
+
 proc build*(q: QueryBuilder): JsonNode =
   ## Build the request payload that will be sent to `/kit/query`.
   result = newJObject()
@@ -110,6 +119,8 @@ proc build*(q: QueryBuilder): JsonNode =
     result["projection"] = cols
   if q.hasLimit:
     result["limit"] = %q.limitVal
+  if q.hasOffset:
+    result["offset"] = %q.offsetVal
 
 proc execute*(q: QueryBuilder): seq[JsonNode] =
   ## Run the query and return the matching rows. Also records whether the
@@ -129,4 +140,3 @@ proc truncated*(q: QueryBuilder): bool {.inline.} =
   ## Whether the most recent `execute()` result was capped by the query limit.
   ## Returns `false` until `execute()` has been called.
   q.lastTruncated
-

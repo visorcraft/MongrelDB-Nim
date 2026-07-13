@@ -36,6 +36,10 @@ proc main() =
       "max -> hi")
   check(rangeNorm["column_id"].getInt() == 3, "range column -> column_id")
 
+  let queryPayload = initQueryBuilder(newMongrelDB(), "orders").limit(10).offset(12).build()
+  check(queryPayload["limit"].getInt() == 10, "query limit")
+  check(queryPayload["offset"].getInt() == 12, "query offset")
+
   # URL path escape: only RFC 3986 unreserved chars pass through; '/' is
   # encoded so it cannot inject an extra path segment.
   check(urlPathEscape("orders") == "orders", "escape leaves safe string")
