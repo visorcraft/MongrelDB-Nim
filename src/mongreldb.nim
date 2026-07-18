@@ -16,6 +16,7 @@
 ##      echo "daemon is up"
 
 import std/[base64, httpclient, json, options, strutils, tables, uri]
+import std/algorithm
 
 # NOTE: the submodule imports (mongreldb/transaction, mongreldb/query) are at
 # the BOTTOM of this file. They import `mongreldb` for the MongrelDB type and
@@ -297,10 +298,14 @@ proc postJson*(db: MongrelDB; path: string; payload: JsonNode): JsonNode =
 
 proc flattenCells*(cells: openArray[(int64, JsonNode)]): JsonNode =
   ## Flatten a sequence of `(column_id, value)` pairs to the server's flat
-  ## `[col_id, value, col_id, value, ...]` array. Pair order is not
-  ## significant.
+  ## `[col_id, value, ...]` array in ascending column-id order. Stable
+  ## ordering is required for idempotency keys: the server hashes the request
+  ## payload, and unordered pair order would make two commits of the same
+  ## cells look like a reuse mismatch.
   result = newJArray()
-  for (id, val) in cells:
+  var pairs = @cells
+  pairs.sort(proc (a, b: (int64, JsonNode)): int = cmp(a[0], b[0]))
+  for (id, val) in pairs:
     result.add(%id)
     result.add(val)
 
