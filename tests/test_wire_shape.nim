@@ -75,6 +75,39 @@ suite "Column wire shape":
     check(not wire.contains("enum_variants"))
     check(not wire.contains("default_value"))
 
+  test "all index kinds and embedding source reach create_table":
+    let embedding = Column(
+      id: 2,
+      name: "embedding",
+      ty: "embedding(384)",
+      embeddingSource: some(%*{
+        "kind": "configured_model",
+        "provider_id": "docs",
+        "model_id": "model",
+        "model_version": "1",
+      }),
+    )
+    let indexes = %*[
+      {"name": "bm", "column_id": 1, "kind": "bitmap"},
+      {"name": "fm", "column_id": 1, "kind": "fm_index"},
+      {"name": "ann", "column_id": 2, "kind": "ann",
+       "predicate": "embedding IS NOT NULL",
+       "options": {"ann": {"m": 24, "ef_construction": 96,
+                              "ef_search": 48, "quantization": "dense"}}},
+      {"name": "range", "column_id": 1, "kind": "learned_range"},
+      {"name": "minhash", "column_id": 1, "kind": "minhash"},
+      {"name": "sparse", "column_id": 1, "kind": "sparse"},
+    ]
+    let wire = $createTablePayload("search_docs", [
+      Column(id: 1, name: "id", ty: "int64", primaryKey: true),
+      embedding,
+    ], indexes = indexes)
+    check wire.contains("\"embedding_source\":{\"kind\":\"configured_model\"")
+    for kind in ["bitmap", "fm_index", "ann", "learned_range", "minhash", "sparse"]:
+      check wire.contains("\"kind\":\"" & kind & "\"")
+    check wire.contains("\"quantization\":\"dense\"")
+    check wire.contains("\"predicate\":\"embedding IS NOT NULL\"")
+
   test "history retention payload uses the exact frozen key":
     ## Test the client's actual code path, not just Nim's %*{} macro.
     let body = setHistoryRetentionPayload(42)

@@ -263,7 +263,7 @@ except QueryError as e:
 | `setTimeout(ms)` | Set per-request timeout (ms); returns `var MongrelDB` |
 | `health()` | Check daemon health |
 | `tableNames()` | List table names |
-| `createTable(name, columns)` | Create a table; returns the table id |
+| `createTable(name, columns, constraints = nil, indexes = nil)` | Create a table with optional constraints and all index definitions |
 | `dropTable(name)` | Drop a table |
 | `count(table)` | Row count |
 | `put(table, cells, idempotencyKey = "")` | Insert a row |

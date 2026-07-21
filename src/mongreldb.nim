@@ -75,6 +75,8 @@ type
     defaultExpr*: Option[string]
       ## Dynamic default: `now` or `uuid`. Takes precedence over all other
       ## default fields.
+    embeddingSource*: Option[JsonNode]
+      ## Portable EmbeddingSource object. None means application supplied.
 
   MongrelDB* = object
     ## The MongrelDB HTTP client. Build one with `newMongrelDB` and use its
@@ -399,9 +401,11 @@ proc columnToJsonNode*(c: Column): JsonNode =
     result["default_value"] = c.defaultValueJson.get()
   elif c.defaultValue.isSome:
     result["default_value"] = %c.defaultValue.get()
+  if c.embeddingSource.isSome:
+    result["embedding_source"] = c.embeddingSource.get()
 
 proc createTablePayload*(name: string; columns: openArray[Column];
-    constraints: JsonNode = nil): JsonNode =
+    constraints: JsonNode = nil; indexes: JsonNode = nil): JsonNode =
   ## Build the exact JSON object sent to `POST /kit/create_table`.
   var colArr = newJArray()
   for c in columns:
@@ -411,12 +415,14 @@ proc createTablePayload*(name: string; columns: openArray[Column];
   result["columns"] = colArr
   if not constraints.isNil:
     result["constraints"] = constraints
+  if not indexes.isNil:
+    result["indexes"] = indexes
 
 proc createTable*(db: MongrelDB; name: string; columns: openArray[Column];
-    constraints: JsonNode = nil): int64 =
+    constraints: JsonNode = nil; indexes: JsonNode = nil): int64 =
   ## Create a table named `name` with the given columns and return the
   ## assigned table id.
-  let payload = createTablePayload(name, columns, constraints)
+  let payload = createTablePayload(name, columns, constraints, indexes)
   let resp = db.postJson("/kit/create_table", payload)
   if resp.kind == JObject and resp.hasKey("table_id") and
       resp["table_id"].kind == JInt:
