@@ -5,7 +5,7 @@
 # standard library (std/httpclient, std/json) with no external dependencies.
 
 packageName     = "mongreldb"
-version         = "0.63.0"
+version         = "0.63.1"
 author          = "Visorcraft"
 description     = "Pure Nim HTTP client for MongrelDB — typed CRUD, fluent query builder, idempotent batch transactions, SQL, and schema introspection."
 license         = "MIT OR Apache-2.0"
