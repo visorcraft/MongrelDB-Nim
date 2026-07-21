@@ -93,7 +93,9 @@ suite "Column wire shape":
       {"name": "ann", "column_id": 2, "kind": "ann",
        "predicate": "embedding IS NOT NULL",
        "options": {"ann": {"m": 24, "ef_construction": 96,
-                              "ef_search": 48, "quantization": "dense"}}},
+                              "ef_search": 48, "quantization": "dense",
+                              "algorithm": "diskann",
+                              "diskann": {"r": 64, "l": 128, "beam_width": 8, "alpha": 120}}}},
       {"name": "range", "column_id": 1, "kind": "learned_range"},
       {"name": "minhash", "column_id": 1, "kind": "minhash"},
       {"name": "sparse", "column_id": 1, "kind": "sparse"},
@@ -106,6 +108,8 @@ suite "Column wire shape":
     for kind in ["bitmap", "fm_index", "ann", "learned_range", "minhash", "sparse"]:
       check wire.contains("\"kind\":\"" & kind & "\"")
     check wire.contains("\"quantization\":\"dense\"")
+    check wire.contains("\"algorithm\":\"diskann\"")
+    check wire.contains("\"beam_width\":8")
     check wire.contains("\"predicate\":\"embedding IS NOT NULL\"")
 
   test "history retention payload uses the exact frozen key":
