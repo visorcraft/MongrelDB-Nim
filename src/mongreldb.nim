@@ -494,6 +494,154 @@ proc deleteByPk*(db: MongrelDB; table: string; pk: JsonNode) =
 # `query()` and `begin()` are defined after the submodule imports below, since
 # they return `QueryBuilder` / `Transaction` which those modules define.
 
+# ── Durable recovery + retrieve_text (0.64+) ─────────────────────────────────
+
+type
+  CommitHlc* = object
+    ## Structural HLC from durable recovery (0.64+).
+    physicalMicros*: uint64
+    logical*: uint32
+    nodeTiebreaker*: uint32
+
+  DurableOutcome* = object
+    committed*: Option[bool]
+    committedStatements*: Option[int]
+    lastCommitEpoch*: Option[int64]
+    lastCommitEpochText*: string
+    lastCommitHlc*: Option[CommitHlc]
+    serialization*: string
+    serializationState*: string
+    terminalState*: string
+
+  QueryStatus* = object
+    ## GET /queries/{query_id} decoded status.
+    queryId*: string
+    status*: string
+    state*: string
+    serverState*: string
+    terminalState*: string
+    committed*: Option[bool]
+    lastCommitEpoch*: Option[int64]
+    lastCommitHlc*: Option[CommitHlc]
+    outcome*: DurableOutcome
+    durable*: Option[DurableOutcome]
+    raw*: JsonNode
+
+proc parseCommitHlc*(raw: JsonNode): Option[CommitHlc] =
+  ## Structural HLC; returns none when physical_micros is absent.
+  if raw.isNil or raw.kind != JObject or not raw.hasKey("physical_micros"):
+    return none(CommitHlc)
+  var h: CommitHlc
+  h.physicalMicros = uint64(raw["physical_micros"].getBiggestInt)
+  h.logical = if raw.hasKey("logical"): uint32(raw["logical"].getInt) else: 0'u32
+  h.nodeTiebreaker = if raw.hasKey("node_tiebreaker"): uint32(raw["node_tiebreaker"].getInt) else: 0'u32
+  some(h)
+
+proc parseDurableOutcome*(raw: JsonNode): DurableOutcome =
+  result = DurableOutcome()
+  if raw.isNil or raw.kind != JObject:
+    return
+  if raw.hasKey("committed") and raw["committed"].kind == JBool:
+    result.committed = some(raw["committed"].getBool)
+  if raw.hasKey("committed_statements"):
+    result.committedStatements = some(raw["committed_statements"].getInt)
+  if raw.hasKey("last_commit_epoch"):
+    result.lastCommitEpoch = some(raw["last_commit_epoch"].getBiggestInt)
+  if raw.hasKey("last_commit_epoch_text"):
+    result.lastCommitEpochText = raw["last_commit_epoch_text"].getStr
+  result.lastCommitHlc = parseCommitHlc(if raw.hasKey("last_commit_hlc"): raw["last_commit_hlc"] else: nil)
+  if raw.hasKey("serialization"):
+    result.serialization = raw["serialization"].getStr
+  if raw.hasKey("serialization_state"):
+    result.serializationState = raw["serialization_state"].getStr
+  if raw.hasKey("terminal_state"):
+    result.terminalState = raw["terminal_state"].getStr
+
+proc parseQueryStatus*(raw: JsonNode): QueryStatus =
+  ## Decode GET /queries/{id} body into a structural status (0.64+).
+  result = QueryStatus(raw: raw)
+  if raw.isNil or raw.kind != JObject:
+    result.outcome = parseDurableOutcome(nil)
+    return
+  result.queryId = if raw.hasKey("query_id"): raw["query_id"].getStr else: ""
+  result.status = if raw.hasKey("status"): raw["status"].getStr else: ""
+  result.state = if raw.hasKey("state"): raw["state"].getStr else: ""
+  result.serverState = if raw.hasKey("server_state"): raw["server_state"].getStr else: result.state
+  result.terminalState = if raw.hasKey("terminal_state"): raw["terminal_state"].getStr else: ""
+  if raw.hasKey("committed") and raw["committed"].kind == JBool:
+    result.committed = some(raw["committed"].getBool)
+  if raw.hasKey("last_commit_epoch"):
+    result.lastCommitEpoch = some(raw["last_commit_epoch"].getBiggestInt)
+  result.lastCommitHlc = parseCommitHlc(if raw.hasKey("last_commit_hlc"): raw["last_commit_hlc"] else: nil)
+  result.outcome = parseDurableOutcome(if raw.hasKey("outcome"): raw["outcome"] else: nil)
+  if raw.hasKey("durable") and raw["durable"].kind == JObject:
+    result.durable = some(parseDurableOutcome(raw["durable"]))
+
+proc commitHlc*(s: QueryStatus): Option[CommitHlc] =
+  ## Authoritative HLC: durable → outcome → top-level.
+  if s.durable.isSome and s.durable.get.lastCommitHlc.isSome:
+    return s.durable.get.lastCommitHlc
+  if s.outcome.lastCommitHlc.isSome:
+    return s.outcome.lastCommitHlc
+  s.lastCommitHlc
+
+proc serializationState*(s: QueryStatus): string =
+  if s.durable.isSome:
+    if s.durable.get.serializationState.len > 0:
+      return s.durable.get.serializationState
+    if s.durable.get.serialization.len > 0:
+      return s.durable.get.serialization
+  if s.outcome.serializationState.len > 0:
+    return s.outcome.serializationState
+  s.outcome.serialization
+
+proc buildRetrieveTextRequest*(table: string; embeddingColumn: int; text: string;
+                               k: int = 0; deadlineMs: int = 0; maxWork: int = 0): JsonNode =
+  if table.len == 0:
+    raise newQueryError("table is required")
+  if text.len == 0:
+    raise newQueryError("text is required")
+  result = newJObject()
+  result["table"] = %table
+  result["embedding_column"] = %embeddingColumn
+  result["text"] = %text
+  if k > 0: result["k"] = %k
+  if deadlineMs > 0: result["deadline_ms"] = %deadlineMs
+  if maxWork > 0: result["max_work"] = %maxWork
+
+proc retrieveText*(db: MongrelDB; table: string; embeddingColumn: int; text: string;
+                   k: int = 0; deadlineMs: int = 0; maxWork: int = 0): JsonNode =
+  ## Text → embed → ANN retrieve (POST /kit/retrieve_text, 0.64+).
+  let payload = buildRetrieveTextRequest(table, embeddingColumn, text, k, deadlineMs, maxWork)
+  let v = db.postJson("/kit/retrieve_text", payload)
+  if v.kind != JObject:
+    result = newJObject()
+    result["hits"] = newJArray()
+    result["provenance"] = newJObject()
+    return
+  result = v
+  if not result.hasKey("hits"):
+    result["hits"] = newJArray()
+  if not result.hasKey("provenance"):
+    result["provenance"] = newJObject()
+
+proc queryStatus*(db: MongrelDB; queryId: string): QueryStatus =
+  ## Retained SQL status for durable recovery (GET /queries/{query_id}).
+  if queryId.len == 0:
+    raise newQueryError("query_id is required")
+  let v = db.getJson("/queries/" & urlPathEscape(queryId))
+  if v.kind != JObject:
+    raise newQueryError("query status response was not a JSON object")
+  parseQueryStatus(v)
+
+proc cancelQuery*(db: MongrelDB; queryId: string): JsonNode =
+  ## Request cancellation of a running SQL query.
+  if queryId.len == 0:
+    raise newQueryError("query_id is required")
+  result = db.postJson("/queries/" & urlPathEscape(queryId) & "/cancel", newJObject())
+  if result.kind != JObject:
+    result = newJObject()
+
 # ── SQL ──────────────────────────────────────────────────────────────────────
 
 proc sql*(db: MongrelDB; sqlText: string): seq[JsonNode] =
