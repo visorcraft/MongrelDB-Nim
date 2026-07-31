@@ -20,7 +20,10 @@
 
 | Surface | Package | Install |
 |---|---|---|
-| Nim client | `mongreldb` | `nimble install mongreldb` |
+| Nim client | `mongreldb` | `nimble install https://github.com/visorcraft/MongrelDB-Nim` |
+
+The package is not listed in the nimble package registry yet, so install it
+directly from the git URL above.
 
 ## Requirements
 
