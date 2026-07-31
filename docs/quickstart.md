@@ -63,8 +63,11 @@ Leave the daemon running for the rest of this guide.
 
 ## 3. Create a project and pull in the client
 
+The client is not listed in the nimble package registry yet, so install it
+directly from the git URL:
+
 ```sh
-nimble install mongreldb
+nimble install https://github.com/visorcraft/MongrelDB-Nim
 ```
 
 For a local project, init a Nimble package and add the dependency:
@@ -74,18 +77,17 @@ mkdir demo && cd demo
 nimble init
 ```
 
-Then add `mongreldb` to the `requires` list in your `.nimble` file:
+Then add the git URL to the `requires` list in your `.nimble` file:
 
 ```nim
-requires "nim >= 2.0", "mongreldb"
+requires "nim >= 2.0", "https://github.com/visorcraft/MongrelDB-Nim#head"
 ```
 
-If you are vendoring the source locally instead, use a path dependency:
+If you are vendoring the source locally instead, point the compiler at its
+`src` directory:
 
-```nim
-requires "mongreldb#head"
-# or set the path explicitly when compiling:
-#   nim c --path:../mongreldb_nim/src demo.nim
+```sh
+nim c --path:../mongreldb_nim/src demo.nim
 ```
 
 ## 4. Write your first program
